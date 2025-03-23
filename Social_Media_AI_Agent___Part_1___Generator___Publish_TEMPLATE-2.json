@@ -1,0 +1,972 @@
+{
+  "name": "Social Media AI Agent - Part 1 - Generator + Publish TEMPLATE",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        920,
+        -120
+      ],
+      "id": "55a8b40f-fb7c-4be3-b2c6-f573b30d9ef5",
+      "name": "Telegram Trigger",
+      "webhookId": "0578101a-30d0-4986-bdd0-bbefca307ac1",
+      "credentials": {
+        "telegramApi": {
+          "id": "B194AMD8QoBAQXDZ",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "=You are a helpful assistant.\n\nYou have access to the Google Sheets Tool, which allows you to read, create and delete new rows, and update rows in the Google Sheet.\n\nYou must always follow these Rules:\n- Return the full generated post text to the user **before** storing it in Google Sheets.\n- Never assume the user can retrieve the text from Google Sheets. Always send the post in response.\n- If the user asks to save the post, confirm that the text has been shown before saving.\n- Every time you generate a new post, also create a unique Post ID.\n\nThe Post ID should be a short identifier, such as a combination of the topic and a number (e.g., \"vegan001\"). The postID must NOT contain any special characters or spaces like \"_\". FOR EXAMPLE NEVER USE THIS AS POST ID: \"vegan_001\" but \"vegan001\" without any special characters.\n\nWhen saving or updating a post, always use this Post ID to reference the correct row in Google Sheets.\n\nEvery time you generate a new social media post, store the full post text in memory as \"last_generated_post\".\n\nWhen the user asks for the post again, retrieve \"last_generated_post\" and return the full text.\n\nNever assume the user has access to the Google Sheet. Always provide the full post text when asked.\n\nWhenever you generate a post, ALWAYS  return the full text as part of the response.  \n\nNever just say \"saved to Google Sheets\"—always include the full post text in your reply.  \n\nThis ensures that other tools can use the text for further processing.\n\n\nIf the user says \"generate image\", always include the last generated post text in the response.\nNever assume that the system remembers previous messages—always send all necessary information.\n\nAfter generating a post, always ask the user where they want to publish it. The user should provide a list of platforms (e.g., \"Twitter, LinkedIn\"). You then save the list to the sheet.\n\nAfter the user told you what platforms to publish to, ask him if he wants to publish the post.\n\nIf the user types \"publish post {post_id}\", do ONLY tell him that the post was transmitted to the corresponding social media platform that are named in the google sheet next to that post.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1180,
+        -120
+      ],
+      "id": "26eabdb6-9ded-4e43-a54e-a53a67466a59",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "claude-3-5-sonnet-20241022",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        120
+      ],
+      "id": "6d3bf2e5-3838-47c5-b8cc-add6e27d295b",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "V3fqS2iW92jDHAR8",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        120
+      ],
+      "id": "2f915a58-313c-4b7f-b177-8d33ffe9e5e4",
+      "name": "Window Buffer Memory"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "=Generate a realistic image for the following TOPIC: \n\n{{ $json.output }}\n\n---\n\nThe image that features a person in a natural, everyday setting. The scene should look as if it was taken by an amateur using a smartphone, with no professional photography elements. \n\n\n\nThe person should be engaged in an activity, related to the TOPIC mentioned above. \n\n#Rule: The image must not contain any text or signage. ",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1980,
+        -560
+      ],
+      "id": "21c2983e-079e-4025-a92c-356ae937f6e9",
+      "name": "OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "6LnEKBlR3JCiWGdk",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "=generate image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "generate image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1e02a758-42af-4b79-b06a-b3051e6a8147",
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "generate image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notContains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "not generate image"
+            }
+          ]
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1680,
+        -180
+      ],
+      "id": "764a0b94-980d-4330-868e-b88821653dd7",
+      "name": "Switch1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2200,
+        -560
+      ],
+      "id": "61857e5d-f516-445b-8375-96e29f1c3e84",
+      "name": "Telegram2",
+      "webhookId": "f1c268c9-07de-48f2-bb35-70208e704777",
+      "credentials": {
+        "telegramApi": {
+          "id": "B194AMD8QoBAQXDZ",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram2').item.json.result.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output }}. \n\nHere is the URL to the generated image:\n{{ encodeURI($json.correct_drive_url) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3280,
+        -560
+      ],
+      "id": "bd34f37b-9fec-4af1-8f82-026b99e962d9",
+      "name": "Telegram3",
+      "webhookId": "a8d01d45-5fa0-44c5-b367-2dea8cad82a0",
+      "credentials": {
+        "telegramApi": {
+          "id": "B194AMD8QoBAQXDZ",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "result",
+        "name": "={{ $json.result.file_unique_id }}.png",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1QzYDsVYltdul6GMkh4clw2JYW3ctyhnI",
+          "mode": "list",
+          "cachedResultName": "AI Agent Social Media",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1QzYDsVYltdul6GMkh4clw2JYW3ctyhnI"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2760,
+        -560
+      ],
+      "id": "e387a732-5167-4df7-acee-017b996bf977",
+      "name": "Google Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "iujl3jPbQVW8yjft",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/botINSERT_BOT_API/getFile?file_id={{ $json.result.photo[3].file_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        -560
+      ],
+      "id": "b5b89912-201f-4e14-b852-30019114f430",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/botINSERT_BOT_API/{{ $json.result.file_path }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "result"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2580,
+        -560
+      ],
+      "id": "866b56d9-e2fc-4205-8a05-7742e9724642",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb35be49-42f8-4a11-8383-59f4e28dd194",
+              "name": "correct_drive_url",
+              "value": "={{ $('Google Drive').item.json.webContentLink }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3100,
+        -560
+      ],
+      "id": "fa1db2b0-f281-4983-96e4-d36d4c07f021",
+      "name": "Correct Drive URL"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Templates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=0"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically",
+              "readRowsUntil": "firstEmptyRow"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1300,
+        160
+      ],
+      "id": "c45d0ba4-8c0a-4a81-954d-d236c644a1ba",
+      "name": "Google Sheets - Read Templates",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 740956331,
+          "mode": "list",
+          "cachedResultName": "Generated Post",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=740956331"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1440,
+        180
+      ],
+      "id": "e6617066-ef03-4502-a3cf-9f5a441daa61",
+      "name": "Delete Post Templates",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 740956331,
+          "mode": "list",
+          "cachedResultName": "Generated Post",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=740956331"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically",
+              "readRowsUntil": "firstEmptyRow"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1860,
+        60
+      ],
+      "id": "12ca1ff5-3e6f-40e9-8ae2-9c60a3a4b8f7",
+      "name": "Google Sheets - Read Post Texts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 740956331,
+          "mode": "list",
+          "cachedResultName": "Generated Post",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=740956331"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post Text": "={{ $fromAI(\"post_text\",\"this is the text of the post\") }}",
+            "Image URL": "={{ $fromAI(\"image_url\",\"this is the URL of the AI generated image\") }}",
+            "Publish Date": "={{ $fromAI(\"publish_date\",\"this is the date for when the post was published\") }}",
+            "Post ID": "={{ $fromAI(\"post_id\",\"this is the id of the post\") }}",
+            "Platform": "={{ $fromAI(\"platform\",\"the name of the social media platform this post should be published to. If there are several names, separate them by a comma\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Post ID",
+              "displayName": "Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Text",
+              "displayName": "Post Text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image Display",
+              "displayName": "Image Display",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Platform",
+              "displayName": "Platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Publish Date",
+              "displayName": "Publish Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1720,
+        120
+      ],
+      "id": "6244101e-c08a-44cc-b262-9f6674ba4b48",
+      "name": "Google Sheets - Add Post Texts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 740956331,
+          "mode": "list",
+          "cachedResultName": "Generated Post",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=740956331"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post ID": "={{ $fromAI(\"post_id\",\"this is the id of the post\") }}",
+            "Image URL": "={{ $fromAI(\"image_url\",\"this is the URL of the AI generated image\") }}",
+            "Post Text": "={{ $fromAI(\"post_text\",\"this is the text of the post\") }}",
+            "Publish Date": "={{ $fromAI(\"publish_date\",\"this is the date for when the post was published\") }}",
+            "Platform": "={{ $fromAI(\"platform\",\"the name of the social media platform this post should be published to. If there are several names, separate them by a comma\") }}"
+          },
+          "matchingColumns": [
+            "Post ID"
+          ],
+          "schema": [
+            {
+              "id": "Post ID",
+              "displayName": "Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Text",
+              "displayName": "Post Text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image Display",
+              "displayName": "Image Display",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Platform",
+              "displayName": "Platform",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Publish Date",
+              "displayName": "Publish Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1580,
+        160
+      ],
+      "id": "0c472db7-c140-4662-ad5f-02ba85a768d5",
+      "name": "Google Sheets - Update Post Texts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak",
+          "mode": "list",
+          "cachedResultName": "Post Templates - Social Media AI Agent - FabiMarkl.com",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Templates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1jKO3unOJaCVuV2OnnLMjCDjD7wGNQKktipxcTKotMak/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Post Style": "={{ $fromAI(\"post_style\",\"this is the style of the post template summarized in one or two words\") }}",
+            "Post Template": "={{ $fromAI(\"post_template\",\"this is the text of the post template\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Post Style",
+              "displayName": "Post Style",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Template",
+              "displayName": "Post Template",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1160,
+        220
+      ],
+      "id": "5d7a6896-5f81-418d-919f-667c3e15fb22",
+      "name": "Google Sheets - Add Post Templates",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LliVyi35Cxeh8PL7",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2920,
+        -560
+      ],
+      "id": "f0cbe758-7bcc-4abd-a93b-f56c9452da1a",
+      "name": "Google Drive1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "iujl3jPbQVW8yjft",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2020,
+        -180
+      ],
+      "id": "aea6f328-769f-4533-9160-bfee5ba3f1f1",
+      "name": "Telegram1",
+      "webhookId": "3265aae8-3d9f-449f-81c3-1dcfe3f99751",
+      "credentials": {
+        "telegramApi": {
+          "id": "B194AMD8QoBAQXDZ",
+          "name": "Telegram account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI1": {
+      "main": [
+        [
+          {
+            "node": "Telegram2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "OpenAI1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Google Drive1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Correct Drive URL": {
+      "main": [
+        [
+          {
+            "node": "Telegram3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Read Templates": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Post Templates": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Read Post Texts": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Add Post Texts": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Update Post Texts": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Add Post Templates": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive1": {
+      "main": [
+        [
+          {
+            "node": "Correct Drive URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ad491bbf-574e-42ba-998f-4017bfa48329",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7ff6625f0127f3e9a7865e3493009de1c48f57dc5ed87def3ae3316be7f6b238"
+  },
+  "id": "XquPHrBrfZP6bHCU",
+  "tags": []
+}
